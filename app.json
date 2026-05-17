@@ -2,20 +2,27 @@
   "expo": {
     "name": "AppConforme",
     "slug": "appconforme-mobile",
+    "owner": "appconforme",
     "version": "0.1.0",
     "orientation": "portrait",
     "userInterfaceStyle": "automatic",
     "newArchEnabled": true,
     "scheme": "appconforme",
+    "runtimeVersion": {
+      "policy": "appVersion"
+    },
+    "updates": {
+      "url": "https://u.expo.dev/TODO-set-via-eas-init"
+    },
     "ios": {
       "supportsTablet": true,
-      "bundleIdentifier": "com.appconforme.mobile"
+      "bundleIdentifier": "br.com.appconforme.mobile"
     },
     "android": {
       "adaptiveIcon": {
         "backgroundColor": "#ffffff"
       },
-      "package": "com.appconforme.mobile",
+      "package": "br.com.appconforme.mobile",
       "edgeToEdgeEnabled": true
     },
     "web": {
@@ -31,13 +38,23 @@
           "photosPermission": "O AppConforme precisa acessar suas fotos para anexar evidências.",
           "cameraPermission": "O AppConforme precisa da câmera para registrar evidências em campo."
         }
+      ],
+      [
+        "@sentry/react-native/expo",
+        {
+          "organization": "appconforme",
+          "project": "mobile"
+        }
       ]
     ],
     "experiments": {
       "typedRoutes": true
     },
     "extra": {
-      "apiUrl": "http://localhost:3000/api/v1"
+      "apiUrl": "http://localhost:3000/api/v1",
+      "eas": {
+        "projectId": "TODO-set-via-eas-init"
+      }
     }
   }
 }
