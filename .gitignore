@@ -1,0 +1,30 @@
+node_modules/
+.expo/
+dist/
+web-build/
+
+# Native
+*.orig.*
+*.jks
+*.p8
+*.p12
+*.key
+*.mobileprovision
+*.tgz
+
+# Metro
+.metro-health-check*
+
+# Local
+.env*.local
+.env
+
+# OS / IDE
+.DS_Store
+Thumbs.db
+.idea/
+.vscode/
+
+# TS / build
+*.tsbuildinfo
+expo-env.d.ts
