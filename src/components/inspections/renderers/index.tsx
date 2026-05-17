@@ -2,8 +2,9 @@ import type { InspectionItem } from '@/lib/inspections/types';
 import { ChoiceRenderer } from './choice-renderer';
 import { ConformRenderer } from './conform-renderer';
 import { DateRenderer } from './date-renderer';
+import { FallbackRenderer } from './fallback-renderer';
 import { NumberRenderer } from './number-renderer';
-import { PlaceholderRenderer } from './placeholder-renderer';
+import { PhotoRenderer } from './photo-renderer';
 import { TextRenderer } from './text-renderer';
 import type { ItemRendererProps } from './types';
 import { YesNoRenderer } from './yes-no-renderer';
@@ -28,9 +29,10 @@ export function renderItem(item: InspectionItem, props: ItemRendererProps) {
     case 'date':
       return <DateRenderer {...props} />;
     case 'photo':
+      return <PhotoRenderer {...props} />;
     case 'signature':
     case 'file':
-      return <PlaceholderRenderer {...props} />;
+      return <FallbackRenderer {...props} />;
     default: {
       // Exhaustiveness check.
       const _exhaustive: never = item.type;

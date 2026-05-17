@@ -15,4 +15,15 @@ export interface ItemRendererProps {
   value: AnswerInput | null;
   onChange: (next: AnswerInput | null) => void;
   disabled: boolean;
+  /**
+   * UUID da inspeção corrente. Usado por renderers que ancoram evidências
+   * (photo / signature / file). Os demais renderers podem ignorar.
+   */
+  inspectionId: string;
+  /**
+   * UUID da resposta persistida (`InspectionAnswer.id`), se já existir.
+   * Preferido como `target` no upload — quando ausente, o renderer cai
+   * pra `inspectionId` (a API aceita qualquer um dos dois).
+   */
+  inspectionAnswerId?: string | null;
 }

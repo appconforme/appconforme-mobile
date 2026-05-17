@@ -440,6 +440,8 @@ function DetailBody({ inspection, actor, onMutated }: DetailBodyProps) {
                       value,
                       onChange: (next) => handleChange(item.id, next),
                       disabled: false,
+                      inspectionId: inspection.id,
+                      inspectionAnswerId: persisted?.id ?? null,
                     })
                   ) : isPlaceholder ? (
                     renderItem(item, {
@@ -447,6 +449,8 @@ function DetailBody({ inspection, actor, onMutated }: DetailBodyProps) {
                       value,
                       onChange: () => undefined,
                       disabled: true,
+                      inspectionId: inspection.id,
+                      inspectionAnswerId: persisted?.id ?? null,
                     })
                   ) : (
                     <View style={styles.readOnly}>
