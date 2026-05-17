@@ -8,11 +8,16 @@
     "ios": "expo start --ios",
     "web": "expo start --web",
     "lint": "expo lint",
-    "typecheck": "tsc --noEmit"
+    "typecheck": "tsc --noEmit",
+    "build:dev": "npx eas-cli build --profile development",
+    "build:preview": "npx eas-cli build --profile preview",
+    "build:prod": "npx eas-cli build --profile production",
+    "submit:prod": "npx eas-cli submit --profile production"
   },
   "dependencies": {
     "@hookform/resolvers": "^3.9.1",
     "@react-native-async-storage/async-storage": "1.23.1",
+    "@sentry/react-native": "^8.11.1",
     "@tanstack/react-query": "^5.59.20",
     "expo": "~52.0.0",
     "expo-constants": "~17.0.3",

@@ -1,5 +1,6 @@
 import { create } from 'zustand';
 import type { AuthCompany, AuthUser } from '@/lib/api/types';
+import { clearSentryUser, setSentryUser } from '@/lib/errors/sentry';
 import { authStorage } from './storage';
 
 interface AuthState {
@@ -53,6 +54,9 @@ export const useAuthStore = create<AuthState>((set, get) => ({
       user,
       activeCompanyId,
     });
+    if (user) {
+      setSentryUser({ id: user.id, email: user.email });
+    }
   },
 
   async setSession({ accessToken, refreshToken, user }) {
@@ -62,6 +66,7 @@ export const useAuthStore = create<AuthState>((set, get) => ({
       authStorage.setUser(JSON.stringify(user)),
     ]);
     set({ accessToken, refreshToken, user });
+    setSentryUser({ id: user.id, email: user.email });
   },
 
   async setMe({ user, companies }) {
@@ -76,6 +81,7 @@ export const useAuthStore = create<AuthState>((set, get) => ({
       companies,
       activeCompanyId: next,
     });
+    setSentryUser({ id: user.id, email: user.email });
   },
 
   async setActiveCompanyId(id) {
@@ -92,5 +98,6 @@ export const useAuthStore = create<AuthState>((set, get) => ({
       companies: [],
       activeCompanyId: null,
     });
+    clearSentryUser();
   },
 }));

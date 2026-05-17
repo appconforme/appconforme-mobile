@@ -3,7 +3,12 @@ import { Stack, useRouter, useSegments } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
 import { useEffect } from 'react';
 import { ActivityIndicator, View } from 'react-native';
+import * as Sentry from '@sentry/react-native';
 import { useAuthStore } from '@/lib/auth/store';
+import { initSentry } from '@/lib/errors/sentry';
+
+// Init em module-level: roda antes de qualquer render.
+initSentry();
 
 const queryClient = new QueryClient({
   defaultOptions: {
@@ -45,7 +50,7 @@ function AuthGate({ children }: { children: React.ReactNode }) {
   return <>{children}</>;
 }
 
-export default function RootLayout() {
+function RootLayout() {
   return (
     <QueryClientProvider client={queryClient}>
       <AuthGate>
@@ -55,3 +60,5 @@ export default function RootLayout() {
     </QueryClientProvider>
   );
 }
+
+export default Sentry.wrap(RootLayout);
