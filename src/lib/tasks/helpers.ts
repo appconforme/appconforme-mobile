@@ -1,17 +1,7 @@
 import type { CompanyUserRole } from '@/lib/api/types';
 import { isManagerRole } from '@/lib/permissions/roles';
+import type { Tone } from '@/lib/permissions/tone';
 import type { Task, TaskPriority, TaskStatus } from './types';
-
-export type Tone = 'conform' | 'pending' | 'neutral' | 'non-conform' | 'primary';
-
-/** Cores RN por tone — coerentes com a paleta do login. */
-export const TONE_COLORS: Record<Tone, { bg: string; fg: string }> = {
-  conform: { bg: '#dcfce7', fg: '#15803d' }, // verde
-  pending: { bg: '#fef3c7', fg: '#b45309' }, // âmbar
-  neutral: { bg: '#f1f5f9', fg: '#475569' }, // cinza
-  'non-conform': { bg: '#fee2e2', fg: '#991b1b' }, // vermelho
-  primary: { bg: '#dbeafe', fg: '#1d4ed8' }, // azul
-};
 
 /** Mapeia status de tarefa pro tone do StatusBadge. */
 export function taskStatusTone(status: TaskStatus): Tone {

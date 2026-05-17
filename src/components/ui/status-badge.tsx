@@ -1,5 +1,5 @@
 import { StyleSheet, Text, View } from 'react-native';
-import { TONE_COLORS, type Tone } from '@/lib/tasks/helpers';
+import { TONE_COLORS, type Tone } from '@/lib/permissions/tone';
 
 interface StatusBadgeProps {
   label: string;
