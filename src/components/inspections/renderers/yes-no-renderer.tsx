@@ -1,4 +1,5 @@
 import { Pressable, StyleSheet, Text, View } from 'react-native';
+import { getYesNoSchema } from '@/lib/inspections/field-type-schema';
 import type { AnswerInput, ItemRendererProps } from './types';
 
 function readValue(value: AnswerInput | null): 'yes' | 'no' | null {
@@ -12,6 +13,9 @@ export function YesNoRenderer({
   onChange,
   disabled,
 }: ItemRendererProps) {
+  const schema = getYesNoSchema(item);
+  const yesLabel = schema.labels?.yes ?? 'Sim';
+  const noLabel = schema.labels?.no ?? 'Não';
   const current = readValue(value);
 
   function pick(next: 'yes' | 'no') {
@@ -29,8 +33,8 @@ export function YesNoRenderer({
 
   return (
     <View style={styles.row}>
-      <Pill label="Sim" active={current === 'yes'} disabled={disabled} onPress={() => pick('yes')} />
-      <Pill label="Não" active={current === 'no'} disabled={disabled} onPress={() => pick('no')} />
+      <Pill label={yesLabel} active={current === 'yes'} disabled={disabled} onPress={() => pick('yes')} />
+      <Pill label={noLabel} active={current === 'no'} disabled={disabled} onPress={() => pick('no')} />
     </View>
   );
 }

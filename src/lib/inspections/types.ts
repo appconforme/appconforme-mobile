@@ -48,6 +48,19 @@ export interface Inspection {
 }
 
 /**
+ * Snapshot congelado do FieldType customizado associado ao item. Espelha o
+ * payload do backend — `schemaJson` é forma livre (narrowing defensivo em
+ * `src/lib/inspections/field-type-schema.ts`).
+ */
+export interface InspectionItemCustomFieldType {
+  id: string;
+  key: string;
+  label: string;
+  baseInput: ChecklistItemType;
+  schemaJson: unknown;
+}
+
+/**
  * Item da inspeção como devolvido por GET /:id — vem do snapshot da versão
  * congelada. Não filtra deletedAt (snapshot é imutável).
  */
@@ -61,6 +74,7 @@ export interface InspectionItem {
   evidenceType: EvidenceType | null;
   order: number;
   optionsJson: { options?: Array<{ label: string; value?: string }> } | null;
+  customFieldType: InspectionItemCustomFieldType | null;
 }
 
 export interface InspectionAnswer {

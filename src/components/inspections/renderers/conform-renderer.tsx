@@ -1,4 +1,5 @@
 import { Pressable, StyleSheet, Text, View } from 'react-native';
+import { getConformSchema } from '@/lib/inspections/field-type-schema';
 import type { AnswerInput, ItemRendererProps } from './types';
 
 type ConformValue = 'conform' | 'not_conform';
@@ -14,6 +15,9 @@ export function ConformRenderer({
   onChange,
   disabled,
 }: ItemRendererProps) {
+  const schema = getConformSchema(item);
+  const conformLabel = schema.labels?.conform ?? 'Conforme';
+  const notConformLabel = schema.labels?.not_conform ?? 'Não conforme';
   const current = readValue(value);
 
   function pick(next: ConformValue) {
@@ -33,14 +37,14 @@ export function ConformRenderer({
   return (
     <View style={styles.row}>
       <Pill
-        label="Conforme"
+        label={conformLabel}
         tone="conform"
         active={current === 'conform'}
         disabled={disabled}
         onPress={() => pick('conform')}
       />
       <Pill
-        label="Não conforme"
+        label={notConformLabel}
         tone="non-conform"
         active={current === 'not_conform'}
         disabled={disabled}

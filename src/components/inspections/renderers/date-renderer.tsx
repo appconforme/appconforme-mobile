@@ -1,5 +1,6 @@
 import { useState } from 'react';
 import { StyleSheet, Text, TextInput, View } from 'react-native';
+import { getDateSchema } from '@/lib/inspections/field-type-schema';
 import type { AnswerInput, ItemRendererProps } from './types';
 
 const ISO_DATE = /^\d{4}-\d{2}-\d{2}$/;
@@ -14,23 +15,36 @@ function readValue(value: AnswerInput | null): string {
  * adicionar `@react-native-community/datetimepicker` ficou pra depois.
  */
 export function DateRenderer({ item, value, onChange, disabled }: ItemRendererProps) {
+  const schema = getDateSchema(item);
   const persisted = readValue(value);
   const [draft, setDraft] = useState<string>(persisted);
   const [touched, setTouched] = useState<boolean>(false);
 
-  const showError = touched && draft.trim() !== '' && !ISO_DATE.test(draft.trim());
+  const trimmed = draft.trim();
+  const isValidFormat = ISO_DATE.test(trimmed);
+  const formatError = touched && trimmed !== '' && !isValidFormat;
+
+  // Validação min/max só quando o formato é válido.
+  let rangeError: string | null = null;
+  if (isValidFormat) {
+    const minOk = !schema.min || trimmed >= schema.min;
+    const maxOk = !schema.max || trimmed <= schema.max;
+    if (!minOk || !maxOk) {
+      rangeError = 'Data fora da faixa permitida.';
+    }
+  }
 
   function commit(raw: string) {
-    const trimmed = raw.trim();
-    if (trimmed === '') {
+    const t = raw.trim();
+    if (t === '') {
       onChange(null);
       return;
     }
-    if (!ISO_DATE.test(trimmed)) return;
+    if (!ISO_DATE.test(t)) return;
     onChange({
       checklistItemId: item.id,
       answerType: item.type,
-      answerValue: { value: trimmed },
+      answerValue: { value: t },
     });
   }
 
@@ -54,8 +68,10 @@ export function DateRenderer({ item, value, onChange, disabled }: ItemRendererPr
         autoCorrect={false}
         style={[styles.input, disabled && styles.disabled]}
       />
-      {showError ? (
+      {formatError ? (
         <Text style={styles.err}>Formato inválido. Use AAAA-MM-DD.</Text>
+      ) : rangeError ? (
+        <Text style={styles.err}>{rangeError}</Text>
       ) : null}
     </View>
   );

@@ -424,6 +424,13 @@ function DetailBody({ inspection, actor, onMutated }: DetailBodyProps) {
                       <Text style={styles.itemMeta}>
                         {CHECKLIST_ITEM_TYPE_LABEL[item.type]}
                       </Text>
+                      {item.customFieldType ? (
+                        <View style={styles.typeChip}>
+                          <Text style={styles.typeChipText} numberOfLines={1}>
+                            Tipo: {item.customFieldType.label}
+                          </Text>
+                        </View>
+                      ) : null}
                       {item.requiresEvidence && item.evidenceType ? (
                         <Text style={styles.itemMetaAccent}>
                           + {EVIDENCE_TYPE_LABEL[item.evidenceType]}
@@ -584,9 +591,21 @@ const styles = StyleSheet.create({
   },
   itemTitle: { fontSize: 14, fontWeight: '600', color: '#0f172a' },
   itemDesc: { fontSize: 12.5, color: '#64748b' },
-  itemMetaRow: { flexDirection: 'row', flexWrap: 'wrap', gap: 8 },
+  itemMetaRow: { flexDirection: 'row', flexWrap: 'wrap', alignItems: 'center', gap: 8 },
   itemMeta: { fontSize: 11.5, color: '#64748b' },
   itemMetaAccent: { fontSize: 11.5, color: '#2563eb', fontWeight: '500' },
+  typeChip: {
+    backgroundColor: '#e2e8f0',
+    borderRadius: 4,
+    paddingHorizontal: 6,
+    paddingVertical: 1,
+    maxWidth: 220,
+  },
+  typeChipText: {
+    fontSize: 11,
+    color: '#334155',
+    fontWeight: '500',
+  },
   requiredTag: {
     paddingVertical: 1,
     paddingHorizontal: 5,

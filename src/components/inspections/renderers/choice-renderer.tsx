@@ -1,4 +1,6 @@
 import { Pressable, StyleSheet, Text, View } from 'react-native';
+import { getChoiceSchema } from '@/lib/inspections/field-type-schema';
+import type { InspectionItem } from '@/lib/inspections/types';
 import type { AnswerInput, ItemRendererProps } from './types';
 
 interface ChoiceOption {
@@ -6,11 +8,16 @@ interface ChoiceOption {
   value: string;
 }
 
-function readOptions(
-  optionsJson: { options?: Array<{ label: string; value?: string }> } | null,
-): ChoiceOption[] {
-  if (!optionsJson?.options) return [];
-  return optionsJson.options.map((opt, idx) => ({
+function readOptions(item: InspectionItem): ChoiceOption[] {
+  const customSchema = getChoiceSchema(item);
+  if (customSchema.options && customSchema.options.length > 0) {
+    return customSchema.options.map((opt) => ({
+      label: opt.label,
+      value: opt.value,
+    }));
+  }
+  if (!item.optionsJson?.options) return [];
+  return item.optionsJson.options.map((opt, idx) => ({
     label: opt.label,
     value: opt.value ?? opt.label ?? String(idx),
   }));
@@ -38,7 +45,7 @@ export function ChoiceRenderer({
   disabled,
   multiple,
 }: ChoiceRendererProps) {
-  const options = readOptions(item.optionsJson);
+  const options = readOptions(item);
 
   if (options.length === 0) {
     return (
