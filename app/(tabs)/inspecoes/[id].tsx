@@ -300,6 +300,28 @@ function DetailBody({ inspection, actor, onMutated }: DetailBodyProps) {
     saveMut.mutate(Array.from(buffer.values()));
   }
 
+  async function flushAndComplete() {
+    // Garante que tudo que está no buffer foi gravado no backend antes
+    // de chamar /complete. Sem isso, respostas digitadas e não salvas
+    // ficam só locais e o backend rejeita o complete com
+    // INSPECTION_REQUIRED_ITEMS_MISSING. Usa a API direto para evitar
+    // o Alert de sucesso do saveMut aparecer no meio do fluxo.
+    if (buffer.size > 0) {
+      try {
+        await inspectionsApi.saveAnswers(
+          inspection.id,
+          Array.from(buffer.values()),
+        );
+      } catch (err) {
+        const msg =
+          err instanceof ApiCallError ? err.message : 'Falha ao salvar respostas.';
+        Alert.alert('Erro ao salvar', msg);
+        return;
+      }
+    }
+    completeMut.mutate();
+  }
+
   function onComplete() {
     Alert.alert(
       'Concluir inspeção',
@@ -309,7 +331,9 @@ function DetailBody({ inspection, actor, onMutated }: DetailBodyProps) {
         {
           text: 'Concluir',
           style: 'default',
-          onPress: () => completeMut.mutate(),
+          onPress: () => {
+            void flushAndComplete();
+          },
         },
       ],
     );
