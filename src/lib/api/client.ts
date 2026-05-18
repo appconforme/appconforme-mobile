@@ -2,7 +2,7 @@ import Constants from 'expo-constants';
 import { useAuthStore } from '@/lib/auth/store';
 import type { ApiResponse } from './types';
 
-const FALLBACK_URL = 'http://localhost:3000/api/v1';
+const FALLBACK_URL = 'http://10.0.2.2:3010/api/v1';
 
 function resolveApiUrl(): string {
   const fromEnv = process.env.EXPO_PUBLIC_API_URL;
@@ -14,6 +14,13 @@ function resolveApiUrl(): string {
 }
 
 const API_URL = resolveApiUrl();
+
+// Log de boot pra facilitar debug de conectividade no Metro/dispositivo.
+// Aparece na primeira import e diz qual base URL o app vai usar.
+if (__DEV__) {
+  // eslint-disable-next-line no-console
+  console.log('[api] base URL =', API_URL);
+}
 
 export class ApiCallError extends Error {
   constructor(
@@ -73,12 +80,32 @@ export async function apiCall<T = unknown>(
     for (const [k, v] of Object.entries(opts.headers)) headers[k] = v;
   }
 
-  const res = await fetch(url, {
-    method: opts.method ?? 'GET',
-    headers,
-    body: opts.body !== undefined ? JSON.stringify(opts.body) : undefined,
-    signal: opts.signal,
-  });
+  const method = opts.method ?? 'GET';
+  const t0 = __DEV__ ? Date.now() : 0;
+  let res: Response;
+  try {
+    res = await fetch(url, {
+      method,
+      headers,
+      body: opts.body !== undefined ? JSON.stringify(opts.body) : undefined,
+      signal: opts.signal,
+    });
+  } catch (err) {
+    if (__DEV__) {
+      // eslint-disable-next-line no-console
+      console.log(`[api] ${method} ${url} → NETWORK ERROR:`, String(err));
+    }
+    throw new ApiCallError(
+      'NETWORK_ERROR',
+      'Falha de conexão. Verifique sua rede e a URL da API.',
+      0,
+    );
+  }
+
+  if (__DEV__) {
+    // eslint-disable-next-line no-console
+    console.log(`[api] ${method} ${url} → ${res.status} (${Date.now() - t0}ms)`);
+  }
 
   let parsed: ApiResponse<T> | null = null;
   try {
@@ -96,6 +123,10 @@ export async function apiCall<T = unknown>(
 
   if (!parsed || parsed.success === false) {
     const e = parsed && parsed.success === false ? parsed.error : undefined;
+    if (__DEV__) {
+      // eslint-disable-next-line no-console
+      console.log(`[api] ${method} ${url} → ERROR:`, e?.code, e?.message);
+    }
     throw new ApiCallError(
       e?.code ?? 'INTERNAL_ERROR',
       e?.message ?? 'Erro inesperado.',

@@ -8,7 +8,8 @@ import { useAuthStore } from '@/lib/auth/store';
 import { initSentry } from '@/lib/errors/sentry';
 
 // Init em module-level: roda antes de qualquer render.
-initSentry();
+// Retorna true se o Sentry foi efetivamente inicializado (DSN presente).
+const sentryEnabled = initSentry();
 
 const queryClient = new QueryClient({
   defaultOptions: {
@@ -61,4 +62,6 @@ function RootLayout() {
   );
 }
 
-export default Sentry.wrap(RootLayout);
+// Só envolve com Sentry quando o init de fato rodou; senão o wrap dispara
+// warning "Sentry.wrap was called before Sentry.init" em dev sem DSN.
+export default sentryEnabled ? Sentry.wrap(RootLayout) : RootLayout;

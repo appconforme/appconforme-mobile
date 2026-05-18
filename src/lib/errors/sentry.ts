@@ -6,11 +6,11 @@ import * as Sentry from '@sentry/react-native';
  * DSN e ambiente vêm de variáveis EXPO_PUBLIC_* injetadas pelo EAS.
  * Em dev sem DSN setado, o init é no-op (Sentry ignora chamadas).
  */
-export function initSentry(): void {
+export function initSentry(): boolean {
   const dsn = process.env.EXPO_PUBLIC_SENTRY_DSN;
   if (!dsn) {
     // Sem DSN, não inicializa — evita ruído em dev local.
-    return;
+    return false;
   }
   Sentry.init({
     dsn,
@@ -18,6 +18,7 @@ export function initSentry(): void {
     debug: false,
     tracesSampleRate: 0.2,
   });
+  return true;
 }
 
 /**
