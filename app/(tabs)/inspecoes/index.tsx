@@ -84,13 +84,6 @@ export default function InspecoesListScreen() {
     enabled: !!activeCompanyId,
   });
 
-  if (__DEV__) {
-    // eslint-disable-next-line no-console
-    console.log(
-      `[inspecoes] activeCompanyId=${activeCompanyId} role=${role} forceMine=${forceMine} chip=${chip} loading=${isLoading} error=${isError} items=${data?.items?.length ?? 'null'} query=${JSON.stringify(query)}`,
-    );
-  }
-
   const items: Inspection[] = data?.items ?? [];
 
   const emptyTitle = manager
