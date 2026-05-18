@@ -16,6 +16,7 @@ import { ErrorState } from '@/components/ui/error-state';
 import { StatusBadge } from '@/components/ui/status-badge';
 import { ApiCallError } from '@/lib/api/client';
 import { useCurrentRole } from '@/lib/auth/actor';
+import { useAuthStore } from '@/lib/auth/store';
 import { inspectionsApi, type ListInspectionsQuery } from '@/lib/inspections/api';
 import { inspectionStatusTone } from '@/lib/inspections/helpers';
 import {
@@ -75,9 +76,12 @@ export default function InspecoesListScreen() {
     [chip, onlyMine, forceMine],
   );
 
+  const activeCompanyId = useAuthStore((s) => s.activeCompanyId);
+
   const { data, isLoading, isRefetching, isError, error, refetch } = useQuery({
-    queryKey: ['inspections', query],
+    queryKey: ['inspections', activeCompanyId, query],
     queryFn: () => inspectionsApi.list(query),
+    enabled: !!activeCompanyId,
   });
 
   const items: Inspection[] = data?.items ?? [];

@@ -16,6 +16,7 @@ import { ErrorState } from '@/components/ui/error-state';
 import { StatusBadge } from '@/components/ui/status-badge';
 import { ApiCallError } from '@/lib/api/client';
 import { useCurrentRole } from '@/lib/auth/actor';
+import { useAuthStore } from '@/lib/auth/store';
 import { tasksApi, type ListTasksQuery } from '@/lib/tasks/api';
 import {
   formatDueDate,
@@ -82,6 +83,10 @@ export default function TarefasListScreen() {
     [filter, onlyMine, forceMine],
   );
 
+  // Não dispara antes do /me popular a empresa ativa — evita 400
+  // MISSING_COMPANY_HEADER na primeira pintura pós-login.
+  const activeCompanyId = useAuthStore((s) => s.activeCompanyId);
+
   const {
     data,
     isLoading,
@@ -90,8 +95,9 @@ export default function TarefasListScreen() {
     error,
     refetch,
   } = useQuery({
-    queryKey: ['tasks', query],
+    queryKey: ['tasks', activeCompanyId, query],
     queryFn: () => tasksApi.list(query),
+    enabled: !!activeCompanyId,
   });
 
   const items = useMemo<Task[]>(() => {
