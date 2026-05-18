@@ -1,5 +1,9 @@
 import * as Crypto from 'expo-crypto';
-import * as FileSystem from 'expo-file-system';
+// expo-file-system v19 (SDK 54) tem nova API baseada em classes. A API
+// legacy (readAsStringAsync / EncodingType / uploadAsync) ficou disponível
+// em `expo-file-system/legacy`. Mantemos a legacy aqui — a migração para
+// a nova é tema próprio e não bloqueia o MVP.
+import * as FileSystem from 'expo-file-system/legacy';
 
 /**
  * Calcula um hash SHA-256 a partir da URI de um asset local (`file://...`).
