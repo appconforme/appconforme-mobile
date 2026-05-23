@@ -1,57 +1,91 @@
-import { ActivityIndicator, Pressable, StyleSheet, Text } from 'react-native';
+import { ActivityIndicator, Pressable, StyleSheet, Text, View, type PressableProps, type StyleProp, type ViewStyle } from 'react-native';
+import { theme } from '@/theme';
+import { Icon, type IconName } from './icon';
 
-export type ButtonVariant = 'primary' | 'secondary' | 'danger' | 'ghost';
+export type ButtonVariant = 'primary' | 'secondary' | 'danger' | 'ghost' | 'outline';
+export type ButtonSize = 'sm' | 'md' | 'lg';
 
-interface ButtonProps {
+interface ButtonProps extends Omit<PressableProps, 'children' | 'style'> {
   label: string;
-  onPress: () => void;
   variant?: ButtonVariant;
-  disabled?: boolean;
+  size?: ButtonSize;
   loading?: boolean;
+  leftIcon?: IconName;
+  rightIcon?: IconName;
+  full?: boolean;
+  style?: StyleProp<ViewStyle>;
 }
 
-const VARIANTS: Record<
-  ButtonVariant,
-  { bg: string; fg: string; pressed: string; border?: string }
-> = {
-  primary: { bg: '#2563eb', fg: '#fff', pressed: '#1d4ed8' },
-  secondary: {
-    bg: '#fff',
-    fg: '#0f172a',
-    pressed: '#f1f5f9',
-    border: '#e2e8f0',
-  },
-  danger: { bg: '#dc2626', fg: '#fff', pressed: '#b91c1c' },
-  ghost: { bg: 'transparent', fg: '#2563eb', pressed: '#f1f5f9' },
+interface VariantStyle {
+  bg: string;
+  fg: string;
+  pressed: string;
+  border?: string;
+}
+
+const VARIANTS: Record<ButtonVariant, VariantStyle> = {
+  primary:   { bg: theme.color.primary,      fg: theme.color.textOnPrimary, pressed: theme.color.primaryHover },
+  secondary: { bg: theme.color.surface,      fg: theme.color.text,          pressed: theme.color.bgSubtle,    border: theme.color.border },
+  danger:    { bg: theme.raw.red600,         fg: theme.color.textOnPrimary, pressed: theme.raw.red700 },
+  ghost:     { bg: theme.color.transparent,  fg: theme.color.primary,       pressed: theme.color.primarySoft },
+  outline:   { bg: theme.color.transparent,  fg: theme.color.primary,       pressed: theme.color.primarySoft, border: theme.color.primary },
+};
+
+const SIZES: Record<ButtonSize, { paddingV: number; paddingH: number; minHeight: number; fontSize: number; iconSize: number; gap: number }> = {
+  sm: { paddingV: 8,  paddingH: 12, minHeight: 36, fontSize: theme.fontSize.md, iconSize: 16, gap: 6 },
+  md: { paddingV: 12, paddingH: 16, minHeight: 44, fontSize: theme.fontSize.lg, iconSize: 18, gap: 8 },
+  lg: { paddingV: 14, paddingH: 20, minHeight: 52, fontSize: theme.fontSize.lg, iconSize: 20, gap: 10 },
 };
 
 export function Button({
   label,
-  onPress,
   variant = 'primary',
-  disabled,
+  size = 'md',
   loading,
+  disabled,
+  leftIcon,
+  rightIcon,
+  full,
+  style,
+  ...rest
 }: ButtonProps) {
   const v = VARIANTS[variant];
-  const isDisabled = disabled || loading;
+  const s = SIZES[size];
+  const isDisabled = !!disabled || !!loading;
+
   return (
     <Pressable
-      onPress={onPress}
+      {...rest}
       disabled={isDisabled}
+      accessibilityRole="button"
+      accessibilityState={{ disabled: isDisabled, busy: !!loading }}
       style={({ pressed }) => [
         styles.btn,
         {
           backgroundColor: pressed && !isDisabled ? v.pressed : v.bg,
+          paddingVertical: s.paddingV,
+          paddingHorizontal: s.paddingH,
+          minHeight: s.minHeight,
           borderColor: v.border ?? 'transparent',
           borderWidth: v.border ? 1 : 0,
-          opacity: isDisabled ? 0.6 : 1,
+          opacity: isDisabled ? 0.55 : 1,
+          gap: s.gap,
+          alignSelf: full ? 'stretch' : 'auto',
+          width: full ? '100%' : undefined,
         },
+        style,
       ]}
     >
       {loading ? (
-        <ActivityIndicator color={v.fg} />
+        <ActivityIndicator color={v.fg} size="small" />
       ) : (
-        <Text style={[styles.label, { color: v.fg }]}>{label}</Text>
+        <View style={[styles.inner, { gap: s.gap }]}>
+          {leftIcon ? <Icon name={leftIcon} size={s.iconSize} color={v.fg} /> : null}
+          <Text style={[styles.label, { color: v.fg, fontSize: s.fontSize, fontFamily: theme.fontFamily.semibold }]}>
+            {label}
+          </Text>
+          {rightIcon ? <Icon name={rightIcon} size={s.iconSize} color={v.fg} /> : null}
+        </View>
       )}
     </Pressable>
   );
@@ -59,12 +93,11 @@ export function Button({
 
 const styles = StyleSheet.create({
   btn: {
-    paddingVertical: 12,
-    paddingHorizontal: 16,
-    borderRadius: 8,
+    borderRadius: theme.radius.md,
     alignItems: 'center',
     justifyContent: 'center',
-    minHeight: 44,
+    flexDirection: 'row',
   },
-  label: { fontSize: 15, fontWeight: '600' },
+  inner: { flexDirection: 'row', alignItems: 'center' },
+  label: { letterSpacing: 0.1 },
 });
