@@ -1,319 +1,290 @@
+/**
+ * Tela "Minhas tarefas" / "Todas as tarefas" — pixel-perfect aos mockups
+ * `Minhas Tarefas.png` e `Todas Tarefas.png`. Inspector vê "Minhas"; manager
+ * pode alternar para "Todas".
+ *
+ * Layout: header + busca + chips de contagem + grupos colapsáveis por status.
+ */
 import { useQuery } from '@tanstack/react-query';
 import { useRouter } from 'expo-router';
 import { useMemo, useState } from 'react';
-import {
-  ActivityIndicator,
-  FlatList,
-  Pressable,
-  RefreshControl,
-  StyleSheet,
-  Text,
-  View,
-} from 'react-native';
-import { SafeAreaView } from 'react-native-safe-area-context';
+import { Pressable, RefreshControl, ScrollView, StyleSheet, Text, View } from 'react-native';
+import { Chip } from '@/components/ui/chip';
 import { EmptyState } from '@/components/ui/empty-state';
 import { ErrorState } from '@/components/ui/error-state';
-import { StatusBadge } from '@/components/ui/status-badge';
+import { Icon } from '@/components/ui/icon';
+import { Screen } from '@/components/ui/screen';
+import { ScreenHeader } from '@/components/ui/screen-header';
+import { SearchField } from '@/components/ui/search-field';
+import { TaskCardFull } from '@/components/tasks/TaskCardFull';
+import { TaskGroupHeader, type GroupTone } from '@/components/tasks/TaskGroupHeader';
 import { ApiCallError } from '@/lib/api/client';
 import { useCurrentRole } from '@/lib/auth/actor';
 import { useAuthStore } from '@/lib/auth/store';
+import { isManagerRole } from '@/lib/permissions/roles';
 import { tasksApi, type ListTasksQuery } from '@/lib/tasks/api';
-import {
-  formatDueDate,
-  isManagerRole,
-  priorityColor,
-  taskStatusTone,
-} from '@/lib/tasks/helpers';
-import {
-  TASK_PRIORITY_LABEL,
-  TASK_STATUS_LABEL,
-  type Task,
-  type TaskStatus,
-} from '@/lib/tasks/types';
+import { soon } from '@/lib/ui/soon';
+import { theme } from '@/theme';
+import type { Task, TaskStatus } from '@/lib/tasks/types';
 
-type Filter = 'all' | 'mine_open' | 'mine_progress';
+type ChipId = 'all' | 'pendentes' | 'atrasadas' | 'concluidas' | 'reabertas';
 
-const CHIPS: { id: Filter; label: string }[] = [
-  { id: 'all', label: 'Todas' },
-  { id: 'mine_open', label: 'Minhas pendentes' },
-  { id: 'mine_progress', label: 'Em andamento' },
-];
+const PENDING_STATUSES: ReadonlySet<TaskStatus> = new Set(['open', 'assigned']);
+const REOPENED_STATUSES: ReadonlySet<TaskStatus> = new Set(['rejected']);
+const DONE_STATUSES: ReadonlySet<TaskStatus> = new Set(['approved']);
 
-function buildQuery(
-  filter: Filter,
-  onlyMine: boolean,
-  forceMine: boolean,
-): ListTasksQuery {
-  const q: ListTasksQuery = {
-    perPage: 50,
-    sortBy: 'dueDate',
-    sortOrder: 'asc',
-  };
-  const mine = onlyMine || forceMine;
-  if (mine) q.assignedTo = 'me';
-
-  if (filter === 'mine_open') {
-    q.assignedTo = 'me';
-    // server suporta um status; pra abertas+atribuídas+rejeitadas, vamos
-    // filtrar client-side. Aqui não setamos status.
-  }
-  if (filter === 'mine_progress') {
-    q.assignedTo = 'me';
-    q.status = 'in_progress';
-  }
-  return q;
+function isOverdue(t: Task): boolean {
+  if (!t.dueDate) return false;
+  if (DONE_STATUSES.has(t.status) || t.status === 'cancelled') return false;
+  return new Date(t.dueDate).getTime() < Date.now();
 }
-
-const MINE_OPEN_STATUSES: ReadonlySet<TaskStatus> = new Set([
-  'open',
-  'assigned',
-  'rejected',
-]);
 
 export default function TarefasListScreen() {
   const router = useRouter();
   const role = useCurrentRole();
   const manager = isManagerRole(role);
-  const forceMine = !manager;
-  const [onlyMine, setOnlyMine] = useState<boolean>(forceMine);
-  const [filter, setFilter] = useState<Filter>(forceMine ? 'mine_open' : 'all');
-
-  const query = useMemo(
-    () => buildQuery(filter, onlyMine, forceMine),
-    [filter, onlyMine, forceMine],
-  );
-
-  // Não dispara antes do /me popular a empresa ativa — evita 400
-  // MISSING_COMPANY_HEADER na primeira pintura pós-login.
+  const [mode, setMode] = useState<'mine' | 'all'>(manager ? 'mine' : 'mine');
+  const [chip, setChip] = useState<ChipId>('all');
+  const [search, setSearch] = useState('');
+  const [collapsed, setCollapsed] = useState<Record<string, boolean>>({});
   const activeCompanyId = useAuthStore((s) => s.activeCompanyId);
 
-  const {
-    data,
-    isLoading,
-    isRefetching,
-    isError,
-    error,
-    refetch,
-  } = useQuery({
+  const query = useMemo<ListTasksQuery>(() => {
+    const q: ListTasksQuery = { perPage: 100, sortBy: 'dueDate', sortOrder: 'asc' };
+    if (mode === 'mine') q.assignedTo = 'me';
+    return q;
+  }, [mode]);
+
+  const { data, isLoading, isRefetching, isError, error, refetch } = useQuery({
     queryKey: ['tasks', activeCompanyId, query],
     queryFn: () => tasksApi.list(query),
     enabled: !!activeCompanyId,
   });
 
-  const items = useMemo<Task[]>(() => {
-    const list = data?.items ?? [];
-    if (filter === 'mine_open') {
-      return list.filter((t) => MINE_OPEN_STATUSES.has(t.status));
-    }
-    return list;
-  }, [data, filter]);
+  const allItems = data?.items ?? [];
+  const searchLow = search.trim().toLowerCase();
+  const filteredBySearch = useMemo(
+    () => (searchLow ? allItems.filter((t) => t.title.toLowerCase().includes(searchLow)) : allItems),
+    [allItems, searchLow],
+  );
 
-  const emptyTitle = manager
-    ? 'Nenhuma tarefa criada ainda'
-    : 'Nenhuma tarefa atribuída';
+  const counts = useMemo(() => {
+    const c = { all: filteredBySearch.length, pendentes: 0, atrasadas: 0, concluidas: 0, reabertas: 0 };
+    for (const t of filteredBySearch) {
+      if (PENDING_STATUSES.has(t.status)) c.pendentes++;
+      if (DONE_STATUSES.has(t.status)) c.concluidas++;
+      if (REOPENED_STATUSES.has(t.status)) c.reabertas++;
+      if (isOverdue(t)) c.atrasadas++;
+    }
+    return c;
+  }, [filteredBySearch]);
+
+  const visible = useMemo(() => {
+    if (chip === 'all') return filteredBySearch;
+    if (chip === 'pendentes') return filteredBySearch.filter((t) => PENDING_STATUSES.has(t.status));
+    if (chip === 'atrasadas') return filteredBySearch.filter(isOverdue);
+    if (chip === 'concluidas') return filteredBySearch.filter((t) => DONE_STATUSES.has(t.status));
+    return filteredBySearch.filter((t) => REOPENED_STATUSES.has(t.status));
+  }, [filteredBySearch, chip]);
+
+  const grouped = useMemo(() => {
+    if (chip !== 'all') return null;
+    const atrasadas: Task[] = [];
+    const pendentes: Task[] = [];
+    const concluidas: Task[] = [];
+    const reabertas: Task[] = [];
+    const outras: Task[] = [];
+    for (const t of visible) {
+      if (isOverdue(t)) atrasadas.push(t);
+      else if (PENDING_STATUSES.has(t.status)) pendentes.push(t);
+      else if (DONE_STATUSES.has(t.status)) concluidas.push(t);
+      else if (REOPENED_STATUSES.has(t.status)) reabertas.push(t);
+      else outras.push(t);
+    }
+    return { atrasadas, pendentes, concluidas, reabertas, outras };
+  }, [visible, chip]);
 
   return (
-    <SafeAreaView style={styles.safe}>
-      <View style={styles.header}>
-        <Text style={styles.title}>Tarefas</Text>
+    <Screen bg="app" edges={['top']}>
+      <ScreenHeader
+        title={mode === 'mine' ? 'Minhas tarefas' : 'Todas as tarefas'}
+        subtitle={`${counts.all} tarefa${counts.all === 1 ? '' : 's'}`}
+        rightActions={[{ icon: 'SlidersHorizontal', onPress: () => soon('Filtros avançados') }]}
+      />
 
-        <View style={styles.chips}>
-          {CHIPS.map((c) => {
-            const active = filter === c.id;
-            return (
-              <Pressable
-                key={c.id}
-                onPress={() => setFilter(c.id)}
-                style={[styles.chip, active && styles.chipActive]}
-              >
-                <Text style={[styles.chipText, active && styles.chipTextActive]}>
-                  {c.label}
-                </Text>
-              </Pressable>
-            );
-          })}
-        </View>
+      <ScrollView
+        contentContainerStyle={styles.scroll}
+        refreshControl={
+          <RefreshControl refreshing={isRefetching} onRefresh={() => void refetch()} tintColor={theme.color.primary} />
+        }
+        showsVerticalScrollIndicator={false}
+      >
+        <SearchField
+          value={search}
+          onChangeText={setSearch}
+          placeholder="Buscar tarefas..."
+          onClear={() => setSearch('')}
+        />
 
-        <Pressable
-          onPress={() => {
-            if (forceMine) return;
-            setOnlyMine((v) => !v);
-          }}
-          disabled={forceMine}
-          style={styles.toggle}
+        <ScrollView
+          horizontal
+          showsHorizontalScrollIndicator={false}
+          contentContainerStyle={styles.chipsRow}
         >
-          <View
-            style={[
-              styles.toggleBox,
-              (onlyMine || forceMine) && styles.toggleBoxOn,
-            ]}
-          >
-            {(onlyMine || forceMine) ? (
-              <Text style={styles.toggleCheck}>✓</Text>
-            ) : null}
-          </View>
-          <Text style={styles.toggleLabel}>
-            Só minhas{forceMine ? ' (sempre)' : ''}
-          </Text>
-        </Pressable>
-      </View>
+          <Chip label="Todas"      count={counts.all}        active={chip === 'all'}       onPress={() => setChip('all')}        tone="default" />
+          <Chip label="Pendentes"  count={counts.pendentes}  active={chip === 'pendentes'} onPress={() => setChip('pendentes')}  tone="warning" />
+          <Chip label="Atrasadas"  count={counts.atrasadas}  active={chip === 'atrasadas'} onPress={() => setChip('atrasadas')}  tone="danger" />
+          <Chip label="Concluídas" count={counts.concluidas} active={chip === 'concluidas'} onPress={() => setChip('concluidas')} tone="success" />
+          <Chip label="Reabertas"  count={counts.reabertas}  active={chip === 'reabertas'} onPress={() => setChip('reabertas')}  tone="neutral" />
+        </ScrollView>
 
-      {isLoading ? (
-        <View style={styles.center}>
-          <ActivityIndicator color="#2563eb" />
-        </View>
-      ) : isError ? (
-        <ErrorState
-          message={
-            error instanceof ApiCallError
-              ? error.message
-              : 'Não foi possível carregar as tarefas.'
-          }
-          onRetry={() => void refetch()}
-        />
-      ) : (
-        <FlatList
-          data={items}
-          keyExtractor={(t) => t.id}
-          contentContainerStyle={
-            items.length === 0
-              ? styles.listEmpty
-              : styles.listContent
-          }
-          refreshControl={
-            <RefreshControl
-              refreshing={isRefetching}
-              onRefresh={() => void refetch()}
-              tintColor="#2563eb"
-            />
-          }
-          ListEmptyComponent={
-            <EmptyState
-              title={emptyTitle}
-              description={
-                manager
-                  ? 'Crie tarefas pelo painel web — o mobile é só pra execução.'
-                  : 'Quando algo for atribuído a você, aparece aqui.'
-              }
-            />
-          }
-          renderItem={({ item }) => (
-            <Pressable
-              onPress={() =>
-                router.push({
-                  pathname: '/(tabs)/tarefas/[id]',
-                  params: { id: item.id },
-                })
-              }
-              style={({ pressed }) => [
-                styles.card,
-                pressed && styles.cardPressed,
-              ]}
-            >
-              <View style={styles.cardHeader}>
-                <View
-                  style={[
-                    styles.dot,
-                    { backgroundColor: priorityColor(item.priority) },
-                  ]}
-                />
-                <Text style={styles.cardTitle} numberOfLines={2}>
-                  {item.title}
-                </Text>
-              </View>
-              <View style={styles.cardMeta}>
-                <StatusBadge
-                  label={TASK_STATUS_LABEL[item.status]}
-                  tone={taskStatusTone(item.status)}
-                />
-                <Text style={styles.metaText}>
-                  {TASK_PRIORITY_LABEL[item.priority]}
-                </Text>
-                <Text
-                  style={[
-                    styles.metaText,
-                    formatDueDate(item.dueDate).overdue && styles.overdue,
-                  ]}
-                >
-                  {formatDueDate(item.dueDate).label}
-                </Text>
-              </View>
+        {manager ? (
+          <View style={styles.modeRow}>
+            <Pressable onPress={() => setMode('mine')} style={[styles.modeBtn, mode === 'mine' && styles.modeBtnActive]}>
+              <Text style={[styles.modeText, mode === 'mine' && styles.modeTextActive]}>Só minhas</Text>
             </Pressable>
-          )}
-        />
-      )}
-    </SafeAreaView>
+            <Pressable onPress={() => setMode('all')} style={[styles.modeBtn, mode === 'all' && styles.modeBtnActive]}>
+              <Text style={[styles.modeText, mode === 'all' && styles.modeTextActive]}>Todas da unidade</Text>
+            </Pressable>
+          </View>
+        ) : null}
+
+        {isLoading ? null : isError ? (
+          <ErrorState
+            message={error instanceof ApiCallError ? error.message : 'Não foi possível carregar as tarefas.'}
+            onRetry={() => void refetch()}
+          />
+        ) : visible.length === 0 ? (
+          <EmptyState
+            icon="ClipboardList"
+            title={mode === 'mine' ? 'Nenhuma tarefa atribuída' : 'Nenhuma tarefa encontrada'}
+            description={mode === 'mine'
+              ? 'Quando uma tarefa for atribuída a você, aparece aqui.'
+              : 'Não há tarefas que correspondam ao filtro selecionado.'}
+            compact
+          />
+        ) : grouped ? (
+          <View style={{ gap: 16 }}>
+            <Group label="Atrasadas"  tone="danger"  items={grouped.atrasadas}  collapsed={collapsed} setCollapsed={setCollapsed}
+                   onCard={(t) => router.push({ pathname: '/(tabs)/tarefas/[id]', params: { id: t.id } })} />
+            <Group label="Pendentes"  tone="warning" items={grouped.pendentes}  collapsed={collapsed} setCollapsed={setCollapsed}
+                   onCard={(t) => router.push({ pathname: '/(tabs)/tarefas/[id]', params: { id: t.id } })} />
+            <Group label="Reabertas"  tone="info"    items={grouped.reabertas}  collapsed={collapsed} setCollapsed={setCollapsed}
+                   onCard={(t) => router.push({ pathname: '/(tabs)/tarefas/[id]', params: { id: t.id } })} />
+            <Group label="Concluídas" tone="success" items={grouped.concluidas} collapsed={collapsed} setCollapsed={setCollapsed}
+                   onCard={(t) => router.push({ pathname: '/(tabs)/tarefas/[id]', params: { id: t.id } })} />
+            <Group label="Outras"     tone="neutral" items={grouped.outras}     collapsed={collapsed} setCollapsed={setCollapsed}
+                   onCard={(t) => router.push({ pathname: '/(tabs)/tarefas/[id]', params: { id: t.id } })} />
+          </View>
+        ) : (
+          <View style={{ gap: 8 }}>
+            {visible.map((t) => (
+              <TaskCardFull
+                key={t.id}
+                task={t}
+                onPress={() => router.push({ pathname: '/(tabs)/tarefas/[id]', params: { id: t.id } })}
+              />
+            ))}
+          </View>
+        )}
+
+        <View style={styles.footer}>
+          <Text style={styles.footerText}>
+            Mostrando {visible.length} de {counts.all} tarefas
+          </Text>
+        </View>
+      </ScrollView>
+    </Screen>
+  );
+}
+
+function Group({
+  label,
+  tone,
+  items,
+  collapsed,
+  setCollapsed,
+  onCard,
+}: {
+  label: string;
+  tone: GroupTone;
+  items: Task[];
+  collapsed: Record<string, boolean>;
+  setCollapsed: (fn: (prev: Record<string, boolean>) => Record<string, boolean>) => void;
+  onCard: (t: Task) => void;
+}) {
+  if (items.length === 0) return null;
+  const isCollapsed = !!collapsed[label];
+  return (
+    <View style={{ gap: 8 }}>
+      <TaskGroupHeader
+        label={label}
+        count={items.length}
+        tone={tone}
+        collapsed={isCollapsed}
+        onToggle={() => setCollapsed((prev) => ({ ...prev, [label]: !prev[label] }))}
+      />
+      {!isCollapsed ? (
+        <View style={{ gap: 8 }}>
+          {items.slice(0, 3).map((t) => (
+            <TaskCardFull key={t.id} task={t} onPress={() => onCard(t)} />
+          ))}
+          {items.length > 3 ? (
+            <Pressable style={styles.moreBtn}>
+              <Text style={styles.moreText}>+{items.length - 3} mais</Text>
+              <Icon name="ChevronDown" size={14} color={theme.color.primary} />
+            </Pressable>
+          ) : null}
+        </View>
+      ) : null}
+    </View>
   );
 }
 
 const styles = StyleSheet.create({
-  safe: { flex: 1, backgroundColor: '#fff' },
-  header: {
-    paddingHorizontal: 20,
-    paddingTop: 16,
-    paddingBottom: 12,
-    borderBottomWidth: 1,
-    borderBottomColor: '#e2e8f0',
-    gap: 12,
+  scroll: {
+    paddingHorizontal: theme.spacing[4],
+    paddingTop: theme.spacing[3],
+    paddingBottom: 120,
+    gap: theme.spacing[4],
   },
-  title: { fontSize: 24, fontWeight: '700', color: '#0f172a' },
-  chips: { flexDirection: 'row', flexWrap: 'wrap', gap: 8 },
-  chip: {
-    paddingVertical: 6,
-    paddingHorizontal: 12,
-    borderRadius: 999,
-    backgroundColor: '#f1f5f9',
-  },
-  chipActive: { backgroundColor: '#2563eb' },
-  chipText: { fontSize: 13, fontWeight: '500', color: '#334155' },
-  chipTextActive: { color: '#fff' },
-  toggle: { flexDirection: 'row', alignItems: 'center', gap: 8 },
-  toggleBox: {
-    width: 20,
-    height: 20,
-    borderRadius: 4,
-    borderWidth: 1,
-    borderColor: '#e2e8f0',
-    alignItems: 'center',
-    justifyContent: 'center',
-    backgroundColor: '#fff',
-  },
-  toggleBoxOn: { backgroundColor: '#2563eb', borderColor: '#2563eb' },
-  toggleCheck: { color: '#fff', fontSize: 13, fontWeight: '700' },
-  toggleLabel: { fontSize: 13, color: '#334155' },
-  center: { flex: 1, alignItems: 'center', justifyContent: 'center' },
-  listContent: { paddingVertical: 8 },
-  listEmpty: { flexGrow: 1, justifyContent: 'center' },
-  card: {
-    marginHorizontal: 16,
-    marginVertical: 6,
-    padding: 14,
-    borderRadius: 10,
-    borderWidth: 1,
-    borderColor: '#e2e8f0',
-    backgroundColor: '#fff',
+  chipsRow: {
+    flexDirection: 'row',
     gap: 8,
+    paddingVertical: 2,
   },
-  cardPressed: { backgroundColor: '#f8fafc' },
-  cardHeader: { flexDirection: 'row', alignItems: 'flex-start', gap: 10 },
-  dot: {
-    width: 10,
-    height: 10,
-    borderRadius: 5,
-    marginTop: 5,
+  modeRow: {
+    flexDirection: 'row',
+    backgroundColor: theme.color.bgSubtle,
+    borderRadius: theme.radius.md,
+    padding: 4,
   },
-  cardTitle: {
+  modeBtn: {
     flex: 1,
-    fontSize: 15,
-    fontWeight: '600',
-    color: '#0f172a',
+    paddingVertical: 8,
+    borderRadius: theme.radius.sm,
+    alignItems: 'center',
   },
-  cardMeta: {
+  modeBtnActive: { backgroundColor: theme.color.surface, ...theme.shadow.sm },
+  modeText: {
+    fontSize: theme.fontSize.base,
+    color: theme.color.textMuted,
+    fontFamily: theme.fontFamily.medium,
+  },
+  modeTextActive: { color: theme.color.text, fontFamily: theme.fontFamily.semibold },
+  moreBtn: {
     flexDirection: 'row',
     alignItems: 'center',
-    flexWrap: 'wrap',
-    gap: 10,
+    justifyContent: 'center',
+    gap: 4,
+    paddingVertical: 8,
+    backgroundColor: theme.color.primarySoft,
+    borderRadius: theme.radius.md,
   },
-  metaText: { fontSize: 12, color: '#64748b' },
-  overdue: { color: '#dc2626', fontWeight: '600' },
+  moreText: { fontSize: theme.fontSize.base, color: theme.color.primary, fontFamily: theme.fontFamily.semibold },
+  footer: {
+    paddingTop: theme.spacing[3],
+    alignItems: 'center',
+  },
+  footerText: { fontSize: theme.fontSize.sm, color: theme.color.textMuted },
 });
