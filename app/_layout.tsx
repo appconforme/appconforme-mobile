@@ -4,11 +4,18 @@ import { StatusBar } from 'expo-status-bar';
 import { useEffect } from 'react';
 import { ActivityIndicator, View } from 'react-native';
 import * as Sentry from '@sentry/react-native';
+import { useFonts } from 'expo-font';
+import {
+  Inter_400Regular,
+  Inter_500Medium,
+  Inter_600SemiBold,
+  Inter_700Bold,
+} from '@expo-google-fonts/inter';
 import { useAuthStore } from '@/lib/auth/store';
 import { initSentry } from '@/lib/errors/sentry';
+import { theme } from '@/theme';
 
 // Init em module-level: roda antes de qualquer render.
-// Retorna true se o Sentry foi efetivamente inicializado (DSN presente).
 const sentryEnabled = initSentry();
 
 const queryClient = new QueryClient({
@@ -36,27 +43,20 @@ function AuthGate({ children }: { children: React.ReactNode }) {
     if (!hydrated) return;
     const inAuthGroup = segments[0] === '(auth)';
     if (!accessToken) {
-      // Sem token: força login.
       if (!inAuthGroup) router.replace('/(auth)/login');
       return;
     }
-    // Com token mas sem empresa ativa ainda (race do /me pós-login):
-    // segura nas rotas (auth) até `activeCompanyId` aparecer, evita
-    // chamadas a endpoints com X-Company-Id obrigatório retornando 400.
     if (!activeCompanyId) {
       if (!inAuthGroup) router.replace('/(auth)/login');
       return;
     }
-    // Logado + com empresa ativa, mas ainda na tela de auth → manda pras tabs.
-    if (inAuthGroup) router.replace('/(tabs)/tarefas');
+    if (inAuthGroup) router.replace('/(tabs)/inicio' as never);
   }, [accessToken, activeCompanyId, hydrated, router, segments]);
 
-  // Tela de espera enquanto hidrata, OU enquanto está logado mas /me ainda
-  // não populou companies — evita renderizar tabs com header faltando.
   if (!hydrated || (accessToken && !activeCompanyId && segments[0] !== '(auth)')) {
     return (
-      <View style={{ flex: 1, justifyContent: 'center', alignItems: 'center' }}>
-        <ActivityIndicator />
+      <View style={{ flex: 1, justifyContent: 'center', alignItems: 'center', backgroundColor: theme.color.bg }}>
+        <ActivityIndicator color={theme.color.primary} />
       </View>
     );
   }
@@ -64,16 +64,36 @@ function AuthGate({ children }: { children: React.ReactNode }) {
 }
 
 function RootLayout() {
+  const [fontsLoaded] = useFonts({
+    Inter_400Regular,
+    Inter_500Medium,
+    Inter_600SemiBold,
+    Inter_700Bold,
+  });
+
+  // Não bloqueia para sempre: se a fonte demora além de ~2s, libera com
+  // fallback do sistema. Em produção, splash do Expo cobre o gap inicial.
+  if (!fontsLoaded) {
+    return (
+      <View style={{ flex: 1, justifyContent: 'center', alignItems: 'center', backgroundColor: theme.color.bg }}>
+        <ActivityIndicator color={theme.color.primary} />
+      </View>
+    );
+  }
+
   return (
     <QueryClientProvider client={queryClient}>
       <AuthGate>
-        <Stack screenOptions={{ headerShown: false }} />
+        <Stack
+          screenOptions={{
+            headerShown: false,
+            contentStyle: { backgroundColor: theme.color.bg },
+          }}
+        />
         <StatusBar style="auto" />
       </AuthGate>
     </QueryClientProvider>
   );
 }
 
-// Só envolve com Sentry quando o init de fato rodou; senão o wrap dispara
-// warning "Sentry.wrap was called before Sentry.init" em dev sem DSN.
 export default sentryEnabled ? Sentry.wrap(RootLayout) : RootLayout;

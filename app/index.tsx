@@ -3,9 +3,10 @@ import { useAuthStore } from '@/lib/auth/store';
 
 export default function Index() {
   const accessToken = useAuthStore((s) => s.accessToken);
-  return accessToken ? (
-    <Redirect href="/(tabs)/tarefas" />
-  ) : (
-    <Redirect href="/(auth)/login" />
-  );
+  const activeCompanyId = useAuthStore((s) => s.activeCompanyId);
+
+  if (accessToken && activeCompanyId) {
+    return <Redirect href={'/(tabs)/inicio' as never} />;
+  }
+  return <Redirect href="/(auth)/login" />;
 }
